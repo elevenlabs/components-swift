@@ -1,8 +1,9 @@
 <!--BEGIN_BANNER_IMAGE-->
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/banner_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset=".github/banner_light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="/.github/banner_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="/.github/banner_light.png">
+  <img style="width:100%;" alt="The ElevenLabs logo and an Orb." src="https://raw.githubusercontent.com/elevenlabs/components-swift/main/.github/banner_light.png">
 </picture>
 
 <!--END_BANNER_IMAGE-->
