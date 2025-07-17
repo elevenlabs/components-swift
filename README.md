@@ -18,8 +18,37 @@ A collection of Swift voice components.
 
 ## Docs
 
-Docs and guides are at [https://elevenlabs.io/docs/conversational-ai/overview](https://elevenlabs.io/docs/conversational-ai/overview)
+Conversational AI docs and guides: [https://elevenlabs.io/docs/conversational-ai/overview](https://elevenlabs.io/docs/conversational-ai/overview)
 
 ## Example App
 
-See our [example app](https://github.com/elevenlabs/swift-start-kit), to see how you can build cross-platform Apple voice experiences.
+See our [example app](https://github.com/elevenlabs/swift-starter-kit), to see how you can build cross-platform Apple voice experiences.
+
+---
+
+## Installation
+
+You can add ElevenLabsComponents to your project using [Swift Package Manager](https://swift.org/package-manager/).
+
+**In Xcode:**
+
+1. Go to **File > Add Packages...**
+2. Enter the repository URL:
+   ```
+   https://github.com/elevenlabs/components-swift
+   ```
+3. Select the `main` branch or a version, and add the `ElevenLabsComponents` library to your target.
+
+**Or add to your `Package.swift`:**
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/elevenlabs/components-swift.git", from: "0.1.0")
+]
+```
+
+---
+
+## What’s Included
+
+This package provides a set of SwiftUI components for building real-time voice experiences with ElevenLabs Conversational AI, including an `OrbVisualizer`.
