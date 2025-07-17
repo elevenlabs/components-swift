@@ -52,3 +52,7 @@ dependencies: [
 ## What’s Included
 
 This package provides a set of SwiftUI components for building real-time voice experiences with ElevenLabs Conversational AI, including an `OrbVisualizer`.
+
+## Acknowledgements
+
+This project extends the [LiveKit components-swift](https://github.com/livekit/components-swift) codebase under the same permissive license, with modifications tailored for ElevenLabs voice experiences. We are grateful for their foundational work, which has enabled further innovation in this space.
