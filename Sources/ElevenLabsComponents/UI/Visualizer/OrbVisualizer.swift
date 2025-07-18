@@ -27,6 +27,37 @@ import AppKit
 import UIKit
 #endif
 
+// MARK: - Color Hex Extension
+
+extension Color {
+    /// Initialize a Color from a hex string.
+    /// - Parameter hex: Hex string (e.g., "CADCFC" or "#CADCFC")
+    public init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 /// CPU-side uniforms must match `OrbUniforms` in `OrbShader.metal` byte‑for‑byte.
 /// Stride = 96 bytes.
 struct OrbUniforms {
@@ -163,7 +194,9 @@ class MetalOrbRenderer: NSObject, MTKViewDelegate {
 
         // First try the module bundle (for SwiftPM)
         #if SWIFT_PACKAGE
-        lib = try? device.makeDefaultLibrary(bundle: Bundle.module)
+        if let bundle = Bundle.allBundles.first(where: { $0.bundleIdentifier?.contains("ElevenLabsComponents") == true }) {
+            lib = try? device.makeDefaultLibrary(bundle: bundle)
+        }
         #endif
 
         // If not found, try the main bundle
@@ -331,40 +364,127 @@ public struct Orb: View {
 /// interactive, visual representation of the audio track's spectrum. This
 /// visualizer can be customized.
 ///
-/// Usage:
-/// ```
-/// let inputTrack: AudioTrack = ...
-/// let outputTrack: AudioTrack = ...
-/// let agentState: AgentState = ...
-/// OrbVisualizer(inputTrack: inputTrack, outputTrack: outputTrack, agentState: agentState)
+/// ## Usage Examples
+///
+/// ### Basic usage with default colors:
+/// ```swift
+/// OrbVisualizer()
 /// ```
 ///
-/// - Parameters:
-///   - inputTrack: The input `AudioTrack` providing audio data to be visualized.
-///   - outputTrack: The output `AudioTrack` providing audio data to be visualized.
-///   - agentState: Triggers transitions between visualizer animation states.
-///   - colors: The 2 colors to be used to render the Orb
-///
-/// Example:
+/// ### With audio tracks and agent state:
+/// ```swift
+/// OrbVisualizer(
+///     inputTrack: inputTrack,
+///     outputTrack: outputTrack,
+///     agentState: .speaking
+/// )
 /// ```
-/// OrbVisualizer(inputTrack: inputTrack, outputTrack: outputTrack, colors: (.blue, .cyan))
+///
+/// ### With custom colors:
+/// ```swift
+/// OrbVisualizer(
+///     inputTrack: inputTrack,
+///     outputTrack: outputTrack,
+///     agentState: .thinking,
+///     colors: (.blue, .green)
+/// )
+/// ```
+///
+/// ### With hex colors:
+/// ```swift
+/// OrbVisualizer(
+///     inputTrack: inputTrack,
+///     outputTrack: outputTrack,
+///     agentState: .listening,
+///     color1Hex: "CADCFC",
+///     color2Hex: "A0B9D1"
+/// )
+/// ```
+///
+/// ### Standalone orb without audio tracks:
+/// ```swift
+/// OrbVisualizer(
+///     agentState: .thinking,
+///     colors: (.purple, .pink)
+/// )
 /// ```
 public struct OrbVisualizer: View {
     public let colors: (Color, Color)
-
     private let agentState: AgentState
+    private let inputTrack: AudioTrack?
+    private let outputTrack: AudioTrack?
 
     @StateObject private var inputProcessor: AudioProcessor
     @StateObject private var outputProcessor: AudioProcessor
 
-    public init(inputTrack: AudioTrack?, outputTrack: AudioTrack?,
+    // MARK: - Initializers
+
+    /// Initialize an OrbVisualizer with default settings.
+    /// This creates a standalone orb that responds to agent state changes only.
+    public init() {
+        self.init(inputTrack: nil, outputTrack: nil, agentState: .unknown)
+    }
+
+    /// Initialize an OrbVisualizer with agent state only.
+    /// - Parameter agentState: The current agent state to visualize
+    public init(agentState: AgentState) {
+        self.init(inputTrack: nil, outputTrack: nil, agentState: agentState)
+    }
+
+    /// Initialize an OrbVisualizer with custom colors and agent state.
+    /// - Parameters:
+    ///   - agentState: The current agent state to visualize
+    ///   - colors: Tuple of two colors for the orb gradient
+    public init(agentState: AgentState, colors: (Color, Color)) {
+        self.init(inputTrack: nil, outputTrack: nil, agentState: agentState, colors: colors)
+    }
+
+    /// Initialize an OrbVisualizer with hex colors and agent state.
+    /// - Parameters:
+    ///   - agentState: The current agent state to visualize
+    ///   - color1Hex: First color as hex string (e.g., "CADCFC" or "#CADCFC")
+    ///   - color2Hex: Second color as hex string (e.g., "A0B9D1" or "#A0B9D1")
+    public init(agentState: AgentState, color1Hex: String, color2Hex: String) {
+        self.init(inputTrack: nil, outputTrack: nil, agentState: agentState, color1Hex: color1Hex, color2Hex: color2Hex)
+    }
+
+    /// Initialize an OrbVisualizer with audio tracks and optional parameters.
+    /// - Parameters:
+    ///   - inputTrack: The input `AudioTrack` providing audio data to be visualized (optional)
+    ///   - outputTrack: The output `AudioTrack` providing audio data to be visualized (optional)
+    ///   - agentState: Triggers transitions between visualizer animation states
+    ///   - colors: The 2 colors to be used to render the Orb
+    public init(inputTrack: AudioTrack? = nil,
+                outputTrack: AudioTrack? = nil,
                 agentState: AgentState = .unknown,
                 colors: (Color, Color) = (Color(red: 0.793, green: 0.863, blue: 0.988),
                                           Color(red: 0.627, green: 0.725, blue: 0.820)))
     {
+        self.inputTrack = inputTrack
+        self.outputTrack = outputTrack
         self.agentState = agentState
         self.colors = colors
 
+        _inputProcessor = StateObject(wrappedValue: AudioProcessor(track: inputTrack, bandCount: 1))
+        _outputProcessor = StateObject(wrappedValue: AudioProcessor(track: outputTrack, bandCount: 1))
+    }
+    
+    /// Initialize an OrbVisualizer with audio tracks and hex colors.
+    /// - Parameters:
+    ///   - inputTrack: The input `AudioTrack` providing audio data to be visualized (optional)
+    ///   - outputTrack: The output `AudioTrack` providing audio data to be visualized (optional)
+    ///   - agentState: Triggers transitions between visualizer animation states
+    ///   - color1Hex: First color as hex string (e.g., "CADCFC" or "#CADCFC")
+    ///   - color2Hex: Second color as hex string (e.g., "A0B9D1" or "#A0B9D1")
+    public init(inputTrack: AudioTrack? = nil,
+                outputTrack: AudioTrack? = nil,
+                agentState: AgentState = .unknown,
+                color1Hex: String, color2Hex: String) {
+        self.inputTrack = inputTrack
+        self.outputTrack = outputTrack
+        self.agentState = agentState
+        self.colors = (Color(hex: color1Hex), Color(hex: color2Hex))
+        
         _inputProcessor = StateObject(wrappedValue: AudioProcessor(track: inputTrack, bandCount: 1))
         _outputProcessor = StateObject(wrappedValue: AudioProcessor(track: outputTrack, bandCount: 1))
     }
@@ -388,130 +508,180 @@ public struct OrbVisualizer: View {
     }
 }
 
+// MARK: - Previews
+
 #if DEBUG
 struct OrbVisualizer_Previews: PreviewProvider {
-    struct AnimatedOrbPreview: View {
-        let isInput: Bool
-        let agentState: AgentState
-        let colors: (Color, Color)
-
-        @State private var volume: Float = 0.0
-        @State private var timer: Timer?
-        @State private var speechPhase: Float = 0.0
-        @State private var isSpeaking: Bool = false
-        @State private var pauseCounter: Int = 0
-
-        var body: some View {
+    static var previews: some View {
+        Group {
+            // Basic standalone orb
             VStack {
-                Orb(
-                    color1: colors.0,
-                    color2: colors.1,
-                    inputVolume: isInput ? volume : 0.0,
-                    outputVolume: isInput ? 0.0 : volume,
-                    agentState: agentState
-                )
-                .frame(width: 200, height: 200)
-
-                Text(isInput ? "User Speaking" : "Agent \(stateLabel)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("Standalone Orb")
+                    .font(.headline)
+                OrbVisualizer(agentState: .thinking)
+                    .frame(width: 200, height: 200)
             }
-            .onAppear {
-                // Simulate audio volume changes
-                timer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { _ in
-                    DispatchQueue.main.async {
-                        updateVolume()
+            .padding()
+            .previewDisplayName("Standalone Orb")
+
+            // Agent states showcase
+            VStack(spacing: 20) {
+                Text("Agent States")
+                    .font(.headline)
+                
+                HStack(spacing: 20) {
+                    VStack {
+                        OrbVisualizer(agentState: .listening)
+                            .frame(width: 100, height: 100)
+                        Text("Listening")
+                            .font(.caption)
+                    }
+                    
+                    VStack {
+                        OrbVisualizer(agentState: .thinking)
+                            .frame(width: 100, height: 100)
+                        Text("Thinking")
+                            .font(.caption)
+                    }
+                    
+                    VStack {
+                        OrbVisualizer(agentState: .speaking)
+                            .frame(width: 100, height: 100)
+                        Text("Speaking")
+                            .font(.caption)
                     }
                 }
             }
-            .onDisappear {
-                timer?.invalidate()
-            }
-        }
+            .padding()
+            .previewDisplayName("Agent States")
 
-        private func updateVolume() {
-            speechPhase += 0.1
-
-            if pauseCounter > 0 {
-                pauseCounter -= 1
-                withAnimation(.easeOut(duration: 0.1)) {
-                    volume = volume * 0.85 + 0.05 * 0.15
+            // Color variations
+            VStack(spacing: 20) {
+                Text("Color Variations")
+                    .font(.headline)
+                
+                HStack(spacing: 20) {
+                    VStack {
+                        OrbVisualizer(agentState: .speaking, colors: (.blue, .green))
+                            .frame(width: 100, height: 100)
+                        Text("Blue/Green")
+                            .font(.caption)
+                    }
+                    
+                    VStack {
+                        OrbVisualizer(agentState: .speaking, colors: (.purple, .pink))
+                            .frame(width: 100, height: 100)
+                        Text("Purple/Pink")
+                            .font(.caption)
+                    }
+                    
+                    VStack {
+                        OrbVisualizer(agentState: .speaking, color1Hex: "FF6B6B", color2Hex: "4ECDC4")
+                            .frame(width: 100, height: 100)
+                        Text("Hex Colors")
+                            .font(.caption)
+                    }
                 }
-                return
             }
+            .padding()
+            .previewDisplayName("Color Variations")
 
-            // Random chance to pause (breathing, thinking)
-            if Int.random(in: 0 ..< 100) < 3 {
-                pauseCounter = Int.random(in: 10 ... 30) // 0.3 to 0.9 seconds
-                isSpeaking = false
-                return
-            }
+            // Animated preview
+            AnimatedOrbPreview()
+                .padding()
+                .previewDisplayName("Animated Preview")
+        }
+    }
+}
 
-            // Natural speech envelope
-            let basePattern = sin(speechPhase * 2.5) * 0.3 + 0.5
-            let microVariation = sin(speechPhase * 15) * 0.1
-            let emphasis = sin(speechPhase * 0.8) * 0.2
+struct AnimatedOrbPreview: View {
+    @State private var currentState: AgentState = .listening
+    @State private var volume: Float = 0.0
+    @State private var timer: Timer?
+    @State private var speechPhase: Float = 0.0
+    @State private var pauseCounter: Int = 0
 
-            // Combine patterns for natural speech
-            var targetVolume = basePattern + microVariation + emphasis
-
-            // Add occasional emphasis/loudness
-            if Int.random(in: 0 ..< 100) < 5 {
-                targetVolume += Float.random(in: 0.1 ... 0.3)
-            }
-
-            // Clamp and add noise
-            targetVolume = min(max(targetVolume, 0.1), 0.95)
-            targetVolume += Float.random(in: -0.05 ... 0.05)
-
-            // Smooth transition
-            withAnimation(.linear(duration: 0.03)) {
-                volume = volume * 0.7 + targetVolume * 0.3
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Animated Preview")
+                .font(.headline)
+            
+            OrbVisualizer(agentState: currentState, colors: (.blue, .green))
+                .frame(width: 200, height: 200)
+            
+            Text("Current State: \(stateLabel)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            HStack(spacing: 20) {
+                Button("Listening") { currentState = .listening }
+                Button("Thinking") { currentState = .thinking }
+                Button("Speaking") { currentState = .speaking }
             }
         }
-
-        private var stateLabel: String {
-            switch agentState {
-            case .listening:
-                "Listening"
-            case .thinking:
-                "Thinking"
-            case .speaking:
-                "Speaking"
-            default:
-                "Unknown"
+        .onAppear {
+            // Simulate audio volume changes
+            timer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    updateVolume()
+                }
             }
+        }
+        .onDisappear {
+            timer?.invalidate()
         }
     }
 
-    static var previews: some View {
-        Group {
-            AnimatedOrbPreview(
-                isInput: true,
-                agentState: .listening,
-                colors: (Color(red: 0.793, green: 0.863, blue: 0.988),
-                         Color(red: 0.627, green: 0.725, blue: 0.820))
-            )
-            .padding()
-            .previewDisplayName("User Speaking (Input)")
+    private func updateVolume() {
+        speechPhase += 0.1
 
-            AnimatedOrbPreview(
-                isInput: false,
-                agentState: .speaking,
-                colors: (Color(red: 0.793, green: 0.863, blue: 0.988),
-                         Color(red: 0.627, green: 0.725, blue: 0.820))
-            )
-            .padding()
-            .previewDisplayName("Agent Speaking (Output)")
+        if pauseCounter > 0 {
+            pauseCounter -= 1
+            withAnimation(.easeOut(duration: 0.1)) {
+                volume = volume * 0.85 + 0.05 * 0.15
+            }
+            return
+        }
 
-            AnimatedOrbPreview(
-                isInput: false,
-                agentState: .thinking,
-                colors: (Color(red: 0.793, green: 0.863, blue: 0.988),
-                         Color(red: 0.627, green: 0.725, blue: 0.820))
-            )
-            .padding()
-            .previewDisplayName("Agent Thinking")
+        // Random chance to pause (breathing, thinking)
+        if Int.random(in: 0 ..< 100) < 3 {
+            pauseCounter = Int.random(in: 10 ... 30) // 0.3 to 0.9 seconds
+            return
+        }
+
+        // Natural speech envelope
+        let basePattern = sin(speechPhase * 2.5) * 0.3 + 0.5
+        let microVariation = sin(speechPhase * 15) * 0.1
+        let emphasis = sin(speechPhase * 0.8) * 0.2
+
+        // Combine patterns for natural speech
+        var targetVolume = basePattern + microVariation + emphasis
+
+        // Add occasional emphasis/loudness
+        if Int.random(in: 0 ..< 100) < 5 {
+            targetVolume += Float.random(in: 0.1 ... 0.3)
+        }
+
+        // Clamp and add noise
+        targetVolume = min(max(targetVolume, 0.1), 0.95)
+        targetVolume += Float.random(in: -0.05 ... 0.05)
+
+        // Smooth transition
+        withAnimation(.linear(duration: 0.03)) {
+            volume = volume * 0.7 + targetVolume * 0.3
+        }
+    }
+
+    private var stateLabel: String {
+        switch currentState {
+        case .listening:
+            "Listening"
+        case .thinking:
+            "Thinking"
+        case .speaking:
+            "Speaking"
+        default:
+            "Unknown"
         }
     }
 }
