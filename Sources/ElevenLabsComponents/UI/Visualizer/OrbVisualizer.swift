@@ -365,26 +365,57 @@ public struct OrbVisualizer: View {
         self.agentState = agentState
         self.colors = colors
 
-        _inputProcessor = StateObject(wrappedValue: AudioProcessor(track: inputTrack, bandCount: 1))
-        _outputProcessor = StateObject(wrappedValue: AudioProcessor(track: outputTrack, bandCount: 1))
+        _inputProcessor = StateObject(wrappedValue: AudioProcessor(track: inputTrack, bandCount: 7))
+        _outputProcessor = StateObject(wrappedValue: AudioProcessor(track: outputTrack, bandCount: 7))
     }
 
     public var body: some View {
         GeometryReader { geometry in
-            let inputVolume = inputProcessor.bands.first ?? 0
-            let outputVolume = outputProcessor.bands.first ?? 0
+            let inputVolume = aggregateVolume(from: inputProcessor.bands)
+            let outputVolume = aggregateVolume(from: outputProcessor.bands)
 
-            // Override input volume to 1.0 when thinking
             let effectiveInputVolume = agentState == .thinking ? 1.0 : Float(inputVolume)
 
             Orb(color1: colors.0,
                 color2: colors.1,
-                inputVolume: effectiveInputVolume,
+                inputVolume: Float(inputVolume),
                 outputVolume: Float(outputVolume),
                 agentState: agentState)
                 .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .aspectRatio(1, contentMode: .fit)
+    }
+    
+    /// Aggregates multiple frequency bands into a single volume value with intelligent weighting.
+    /// Emphasizes mid-range frequencies where most speech and music energy is located.
+    private func aggregateVolume(from bands: [Float]) -> Float {
+        guard !bands.isEmpty else { return 0.0 }
+        
+        // Frequency weights: emphasize mid-range (indices 2-4) for speech/music
+        // Lower weights for bass (0-1) and treble (5-6) frequencies
+        let weights: [Float] = [1, 1, 1, 1, 1, 1.0, 1.0]
+        
+        var weightedSum: Float = 0.0
+        var totalWeight: Float = 0.0
+        
+        for (index, band) in bands.enumerated() {
+            let weight = index < weights.count ? weights[index] : 1.0
+            weightedSum += band * weight
+            totalWeight += weight
+        }
+        
+        // Calculate weighted average and apply slight amplification for better responsiveness
+        let weightedAverage = totalWeight > 0 ? weightedSum / totalWeight : 0.0
+        
+        // Apply a more aggressive power curve and amplification for better responsiveness
+        // Use a lower power (0.6) to make quiet sounds more visible, and higher amplification (1.8)
+        let enhanced = pow(weightedAverage, 0.6) * 1.8
+        
+        // Add a small baseline to ensure some movement even with quiet audio
+        let withBaseline = enhanced + 0.05
+        
+        // Clamp to valid range
+        return min(max(withBaseline, 0.0), 1.0)
     }
 }
 
