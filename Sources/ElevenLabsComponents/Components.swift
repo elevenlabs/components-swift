@@ -18,7 +18,7 @@
 @_exported import LiveKit
 @_exported import SwiftUI
 
-public let elevenlabsComponentsVersion = "0.1.0"
+public let elevenlabsComponentsVersion = "0.1.1"
 
 public typealias ComponentBuilder<Content: View> = () -> Content
 public typealias ParticipantComponentBuilder<Content: View> = (_: Participant) -> Content
