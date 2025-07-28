@@ -43,7 +43,7 @@ You can add ElevenLabsComponents to your project using [Swift Package Manager](h
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/elevenlabs/components-swift.git", from: "0.1.1")
+    .package(url: "https://github.com/elevenlabs/components-swift.git", from: "0.1.3")
 ]
 ```
 
