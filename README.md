@@ -15,6 +15,35 @@
 A collection of Swift voice components.
 
 <!--END_DESCRIPTION-->
+## Orb Visualizer
+
+<p align="center">
+  <table>
+    <tr>
+      <td valign="middle">
+        <img width="200" height="200" alt="Orb Visualizer" src="https://github.com/user-attachments/assets/35a4c016-f06a-4e69-b8d1-5c9c8ad256d2" />
+      </td>
+      <td valign="middle">
+        <pre><code class="language-swift">OrbVisualizer(
+  inputTrack: nil,
+  outputTrack: nil,
+  agentState: .listening,
+  colors: (Color(hex: "CADCFC"), Color(hex: "A0B9D1"))
+)</code></pre>
+      </td>
+    </tr>
+  </table>
+  <sub>Orb visualizer with Swift usage example.</sub>
+</p>
+
+A SwiftUI view that visualizes audio levels and agent state as an animated Orb. Pass `AudioTrack` instances for real-time visualization, optional `agentState` to reflect status, and two `Color` values to customize the Orb.
+
+### Parameters
+
+- inputTrack: Optional `AudioTrack` used to visualize microphone/input levels.
+- outputTrack: Optional `AudioTrack` used to visualize agent/output levels.
+- agentState: `AgentState` controlling visual states (e.g., `.listening`, `.thinking`, `.speaking`).
+- colors: Tuple of two `Color` values to customize the orb gradient.
 
 ## Docs
 
